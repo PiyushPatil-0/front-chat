@@ -25,16 +25,16 @@ const ChatPage = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const inputRef = useRef(null);       // FIX 1: inputRef was defined but never attached
+  const inputRef = useRef(null);
   const chatBoxRef = useRef(null);
-  const stompClientRef = useRef(null); // FIX 2: useRef instead of useState — avoids stale closures & unnecessary re-renders
+  const stompClientRef = useRef(null);
 
   // Redirect if not connected
   useEffect(() => {
     if (!connected) {
       navigate("/");
     }
-  }, [connected, navigate]); // FIX 3: added navigate to deps
+  }, [connected, navigate]);
 
   // Load previous messages
   useEffect(() => {
@@ -46,14 +46,14 @@ const ChatPage = () => {
         const data = await getMessagess(roomId);
         setMessages(data);
       } catch (error) {
-        toast.error("Failed to load messages"); // FIX 4: empty catch block replaced with error toast
+        toast.error("Failed to load messages");
       } finally {
         setLoading(false);
       }
     }
 
     loadMessages();
-  }, [roomId, connected]); // FIX 5: added roomId & connected to deps (were missing)
+  }, [roomId, connected]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -72,7 +72,7 @@ const ChatPage = () => {
     const sock = new SockJS(`${baseURL}/chat`);
     const client = Stomp.over(sock);
 
-    client.debug = () => { }; // FIX 6: suppress noisy STOMP logs in console
+    client.debug = () => { };
 
     client.connect(
       {},
@@ -86,23 +86,20 @@ const ChatPage = () => {
         });
       },
       (error) => {
-        // FIX 7: was missing error callback entirely
         console.error("WebSocket error:", error);
         toast.error("Connection lost. Please rejoin the room.");
       }
     );
 
-    // FIX 8: cleanup was completely missing — caused memory leaks & duplicate subscriptions
     return () => {
       if (stompClientRef.current && stompClientRef.current.connected) {
         stompClientRef.current.disconnect();
       }
     };
-  }, [roomId, connected]); // FIX 9: added connected to deps
+  }, [roomId, connected]);
 
   // Send message
   const sendMessage = useCallback(() => {
-    // FIX 10: was using stompClient state (stale) — now uses ref
     if (
       !stompClientRef.current ||
       !stompClientRef.current.connected ||
@@ -123,12 +120,12 @@ const ChatPage = () => {
     );
 
     setInput("");
-    inputRef.current?.focus(); // FIX 11: refocus input after sending
+    // NOTE: removed inputRef.current?.focus() here — on mobile this
+    // re-triggers the keyboard in a way that causes layout jumps
   }, [input, currentUser, roomId]);
 
   // Leave room
   function handleLogout() {
-    // FIX 12: was crashing if stompClient was null — added null + connected check
     if (stompClientRef.current && stompClientRef.current.connected) {
       stompClientRef.current.disconnect();
     }
@@ -140,33 +137,34 @@ const ChatPage = () => {
 
   return (
     <div>
-      {/* Header */}
-      <header className="dark:border-gray-700 fixed w-full dark:bg-gray-900 py-5 shadow flex justify-around items-center z-10">
-        {/* FIX 13: added z-10 so header doesn't get hidden under chat content */}
+      {/* ── Header ── */}
+      <header className="dark:border-gray-700 fixed w-full dark:bg-gray-900 py-3 sm:py-5 shadow flex justify-around items-center z-10">
         <div>
-          <h1 className="text-xl font-semibold">
-            Room: <span>{roomId}</span>
+          {/* FIX: text-sm on mobile, text-xl on sm+ */}
+          <h1 className="text-sm sm:text-xl font-semibold">
+            Room: <span className="truncate max-w-[80px] sm:max-w-none inline-block align-bottom">{roomId}</span>
           </h1>
         </div>
         <div>
-          <h1 className="text-xl font-semibold">
+          <h1 className="text-sm sm:text-xl font-semibold">
             User: <span>{currentUser}</span>
           </h1>
         </div>
         <div>
           <button
             onClick={handleLogout}
-            className="dark:bg-red-500 dark:hover:bg-red-700 px-3 py-2 rounded-full"
+            className="dark:bg-red-500 dark:hover:bg-red-700 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-base rounded-full"
           >
             Leave Room
           </button>
         </div>
       </header>
 
-      {/* Messages */}
+      {/* ── Messages area ── */}
+      {/* FIX: w-full on mobile, w-2/3 on sm+ | px-4 on mobile, px-10 on sm+ */}
       <main
         ref={chatBoxRef}
-        className="py-20 px-10 w-2/3 dark:bg-slate-600 mx-auto h-screen overflow-auto"
+        className="py-20 px-4 sm:px-10 w-full sm:w-2/3 dark:bg-slate-600 mx-auto h-screen overflow-auto"
       >
         {loading && (
           <div className="flex justify-center items-center py-10">
@@ -182,19 +180,22 @@ const ChatPage = () => {
           >
             <div
               className={`my-2 ${message.sender === currentUser ? "bg-green-800" : "bg-gray-800"
-                } p-2 max-w-xs rounded`}
+                } p-2 max-w-[80%] sm:max-w-xs rounded`}
+            // FIX: max-w-[80%] on mobile instead of fixed max-w-xs
             >
               <div className="flex flex-row gap-2">
+                {/* FIX: flex-shrink-0 prevents avatar from squishing */}
                 <img
-                  className="h-10 w-10 rounded-full"
+                  className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex-shrink-0 self-start"
                   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${message.sender}`}
                   alt={message.sender}
                 />
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm font-bold">{message.sender}</p>
-                  <p>{message.content}</p>
+                {/* FIX: min-w-0 allows text to wrap instead of overflow */}
+                <div className="flex flex-col gap-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{message.sender}</p>
+                  {/* FIX: break-words stops long words from overflowing bubble */}
+                  <p className="break-words">{message.content}</p>
                   <p className="text-xs text-gray-400">
-                    {/* FIX 14: guard against null/undefined timestamp crashing timeAgo() */}
                     {message.timeStamp ? timeAgo(message.timeStamp) : ""}
                   </p>
                 </div>
@@ -204,9 +205,10 @@ const ChatPage = () => {
         ))}
       </main>
 
-      {/* Input area */}
-      <div className="fixed bottom-4 w-full h-16">
-        <div className="h-full pr-10 gap-4 flex items-center justify-between rounded-full w-1/2 mx-auto dark:bg-gray-900">
+      {/* ── Input bar ── */}
+      {/* FIX: w-full on mobile, w-1/2 on sm+ | px-3 on mobile, pr-10 on sm+ */}
+      <div className="fixed bottom-4 w-full h-16 px-2 sm:px-0">
+        <div className="h-full px-3 sm:pr-10 gap-2 sm:gap-4 flex items-center justify-between rounded-full w-full sm:w-1/2 mx-auto dark:bg-gray-900">
           <input
             ref={inputRef}
             value={input}
@@ -215,18 +217,26 @@ const ChatPage = () => {
               if (e.key === "Enter") sendMessage();
             }}
             type="text"
-            placeholder="Type your message here..."
-            className="w-full dark:border-gray-600 dark:bg-gray-800 px-5 py-2 rounded-full h-full focus:outline-none"
+            placeholder="Type your message..."
+            // ★ THE REVERSED-TEXT FIX ★
+            // These 5 attributes stop iOS/Android IME from corrupting
+            // cursor position in React controlled inputs:
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            dir="ltr"
+            className="w-full dark:border-gray-600 dark:bg-gray-800 px-4 sm:px-5 py-2 rounded-full h-full focus:outline-none text-sm sm:text-base"
           />
-          <div className="flex gap-1">
-            <button className="dark:bg-purple-600 h-10 w-10 flex justify-center items-center rounded-full">
-              <MdAttachFile size={20} />
+          <div className="flex gap-1 flex-shrink-0">
+            <button className="dark:bg-purple-600 h-9 w-9 sm:h-10 sm:w-10 flex justify-center items-center rounded-full">
+              <MdAttachFile size={18} />
             </button>
             <button
               onClick={sendMessage}
-              className="dark:bg-green-600 h-10 w-10 flex justify-center items-center rounded-full"
+              className="dark:bg-green-600 h-9 w-9 sm:h-10 sm:w-10 flex justify-center items-center rounded-full"
             >
-              <MdSend size={20} />
+              <MdSend size={18} />
             </button>
           </div>
         </div>
