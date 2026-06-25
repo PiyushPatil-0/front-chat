@@ -132,7 +132,10 @@ const ChatPage = () => {
       <header className="dark:border-gray-700 fixed w-full dark:bg-gray-900 py-3 sm:py-5 shadow flex justify-around items-center z-10">
         <div>
           <h1 className="text-sm sm:text-xl font-semibold">
-            Room: <span className="truncate max-w-[80px] sm:max-w-none inline-block align-bottom">{roomId}</span>
+            Room:{" "}
+            <span className="truncate max-w-[80px] sm:max-w-none inline-block align-bottom">
+              {roomId}
+            </span>
           </h1>
         </div>
         <div>
@@ -189,8 +192,13 @@ const ChatPage = () => {
         ))}
       </main>
 
-      <div className="fixed bottom-4 w-full h-16 px-2 sm:px-0">
-        <div className="h-full px-3 sm:pr-10 gap-2 sm:gap-4 flex items-center justify-between rounded-full w-full sm:w-1/2 mx-auto dark:bg-gray-900">
+      {/* ── Input bar ──
+          FIX: outer div is the visible pill (rounded-full + dark:bg-gray-900 + overflow-hidden).
+          The overflow-hidden clips the input flush to the pill edges — no gap on the left.
+          The input itself is bg-transparent with no rounding so it blends in seamlessly. */}
+      <div className="fixed bottom-4 w-full h-16 px-3 sm:px-0">
+        <div className="h-full flex items-center rounded-full w-full sm:w-1/2 mx-auto dark:bg-gray-900 overflow-hidden">
+          {/* Input: transparent + no rounded-full = blends into the pill */}
           <input
             ref={inputRef}
             value={input}
@@ -205,9 +213,10 @@ const ChatPage = () => {
             autoCapitalize="off"
             spellCheck={false}
             dir="ltr"
-            className="w-full dark:border-gray-600 dark:bg-gray-800 px-4 sm:px-5 py-2 rounded-full h-full focus:outline-none text-sm sm:text-base"
+            className="flex-1 bg-transparent px-5 py-2 h-full focus:outline-none text-sm sm:text-base text-white placeholder-gray-400"
           />
-          <div className="flex gap-1 flex-shrink-0">
+          {/* Buttons sit flush at the right end of the pill */}
+          <div className="flex items-center gap-1 pr-2 flex-shrink-0">
             <button className="dark:bg-purple-600 h-9 w-9 sm:h-10 sm:w-10 flex justify-center items-center rounded-full">
               <MdAttachFile size={18} />
             </button>
